@@ -1247,12 +1247,12 @@ def test_cgp22c_real_data() -> None:
     )
 
 
-def test_cgp22c_firmware_1_6_0_co2_tlv_0x18() -> None:
-    """Test CGP22C with firmware 1.6.0 sending CO2 as TLV id 0x18.
+def test_cgp22c_tlv_0x18_is_not_co2() -> None:
+    """TLV 0x18 is a static device capabilities bitmap, not a CO2 reading.
 
-    Firmware 1.6.0 changed CO2 from TLV 0x13 to 0x18. The firmware itself
-    has a regression where the CO2 value is stuck (see issue #72), but the
-    library should still parse it so updated firmware will work seamlessly.
+    On the CGP22C the 0x18 payload is constantly 0x0122 (= 290). Treating it
+    as CO2 made devices report a phantom 290 ppm and overwrite the real
+    reading from TLV 0x13 (see issues #115 and #72).
     """
     parser = QingpingBluetoothDeviceData()
     service_info = BluetoothServiceInfo(
@@ -1273,11 +1273,8 @@ def test_cgp22c_firmware_1_6_0_co2_tlv_0x18() -> None:
     )
     parsed = parser.update(service_info)
     assert (
-        parsed.entity_values[
-            DeviceKey(key="carbon_dioxide", device_id=None)
-        ].native_value
-        == 290
-    )
+        DeviceKey(key="carbon_dioxide", device_id=None) not in parsed.entity_values
+    ), "TLV 0x18 is a capabilities bitmap and must never set CO2"
     assert (
         parsed.entity_values[DeviceKey(key="temperature", device_id=None)].native_value
         == 21.0
